@@ -1,23 +1,13 @@
 import { useState, createContext, useEffect } from 'react';
 
-// import { create as ipfsHttpClient } from 'ipfs-http-client';
-import { NFTStorage, File, Blob } from 'nft.storage';
-import nftFile from '../assets/nft6.jpeg';
+import { NFTStorage } from 'nft.storage';
+import Web3Modal from 'web3modal';
+import { ethers } from 'ethers';
+import { ContractDeployedOn, MarketAddressABI } from './constant';
 
-const mime = require('mime');
-const path = require('path');
-const fs = require('fs');
-
-console.log('filesystems', fs);
-// import fs from 'fs';
-// import Web3Modal from 'web3modal';
-// import { ethers } from 'ethers';
-// import axios from 'axios';
-// import { MarketAddressABI, ContractDeployedOn } from './constant';
 export const NFTContext = createContext();
 const NFT_STORAGE_TOKEN =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkaWQ6ZXRocjoweDY4MTI1MTc3Njk1MEY1ZGMwQzZiOTY0YzAwNTlBQkI0MzNFNjYxQTQiLCJpc3MiOiJuZnQtc3RvcmFnZSIsImlhdCI6MTY2NTM4MTExMjcyMCwibmFtZSI6Im5mdCJ9.BeEKoktynUTYrUJANW8sTby1DULZKjjMZHDm2-BYdA4';
-console.log('api token', NFT_STORAGE_TOKEN);
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkaWQ6ZXRocjoweDFGZDkyMzM3ZTdDMTc0NkQ5YTQwODk5ODc2RDIxYUU2NTc0ODA2ZWIiLCJpc3MiOiJuZnQtc3RvcmFnZSIsImlhdCI6MTY2NTQyMjUxMzU4OSwibmFtZSI6InRlc3RpbmcifQ.prz1We13KLZ5RNOs7Rzr7RdOb1ZzMax8apm_SwMOQ-M';
 
 export const NFTProvider = ({ children }) => {
   // const client = ipfsHttpClient('https://ipfs.infura.io:5001/api/v0');
@@ -25,6 +15,8 @@ export const NFTProvider = ({ children }) => {
   const nftCurrency = 'ETH';
   const [currentAccount, setCurrentAccount] = useState('');
 
+  const fetchContract = (ProviderOrSigner) =>
+    new ethers.Contract(ContractDeployedOn, MarketAddressABI, ProviderOrSigner);
   // checking if the wallet already connected
   const checkIfWalletConnected = async () => {
     if (!window.ethereum) {
@@ -45,41 +37,56 @@ export const NFTProvider = ({ children }) => {
     const accounts = await window.ethereum.request({
       method: 'eth_requestAccounts',
     });
-    setCurrentAccount(accounts[0]);
+    setCurrentAccount(accounts[0]); 
     window.location.reload();
   };
 
-  // UPloading file to IPFS
+  // UPloading file to nft.storage
 
-  async function fileFromPath(filePath) {
-    const content = await fs.promises.readFile(filePath);
-    // console.log('image content', content);
-    const type = mime.getType(nftFile);
-    console.log('image type', type);
+  const client = new NFTStorage({ token: NFT_STORAGE_TOKEN });
+  const uploadToNFTStorage = async (acceptedFile) => {
+    const metaData = await client.store({
+      name: acceptedFile.name,
+      description: 'Some description here will be displayed',
+      image: acceptedFile,
+    });
 
-    return new File([content], path.basename(filePath), { type });
-  }
-  const uploadToIPFS = async () => {
-    try {
-      const client = new NFTStorage({ token: NFT_STORAGE_TOKEN });
-      const image = await fileFromPath(nftFile);
-
-      console.log('Image data =>', image);
-    } catch (error) {
-      console.log('Error Uploading file :=>', error);
-    }
+    return metaData;
   };
 
-  // uploaded file to nft.storage
+  // const createNFT = async () => {
+  //   await createSale(url, price);
+  // };
+
+  const createSale = async (url, formInputPrice) => {
+    const web3Modal = new Web3Modal();
+    const connection = await web3Modal.connect();
+    const provider = new ethers.providers.Web3Provider(connection);
+    const signer = provider.getSigner();
+
+    const NftPrice = ethers.utils.parseUnits(formInputPrice, 'ether');
+    const contract = fetchContract(signer);
+    const listingPrice = await contract.getListingPrice();
+    const transaction = await contract.createToken(url, NftPrice, {
+      value: listingPrice.toString(),
+    });
+    await transaction.wait();
+    console.log('listingprice ==>', contract);
+  };
+
+  // uploaded file to nft.storage End
   useEffect(() => {
     checkIfWalletConnected();
-    console.log('uploading file.. ');
-    uploadToIPFS();
-    console.log('uploaded ');
+    createSale('testing', '0.002');
   }, []);
   return (
     <NFTContext.Provider
-      value={{ nftCurrency, connectWallet, currentAccount, uploadToIPFS }}
+      value={{
+        nftCurrency,
+        connectWallet,
+        currentAccount,
+        uploadToNFTStorage,
+      }}
     >
       {children}
     </NFTContext.Provider>

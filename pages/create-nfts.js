@@ -4,21 +4,28 @@ import { useTheme } from 'next-themes';
 import Image from 'next/image';
 import { NFTContext } from '../context/NFTContext';
 import Images from '../assets';
+import { Input } from '../components';
 
 const CreateNfts = () => {
   const [fileUrl, setFileUrl] = useState(null);
-  const { uploadToIPFS } = useContext(NFTContext);
+  const { uploadToNFTStorage } = useContext(NFTContext);
+  const [inputForm, setInputForm] = useState({
+    name: '',
+    description: '',
+    price: '',
+    file: null,
+  });
   const { theme } = useTheme();
   const onDrop = useCallback(async (acceptedFile) => {
-    console.log(acceptedFile[0]);
     console.log('Uploading file ');
 
-    const url = await uploadToIPFS(acceptedFile);
-    console.log('uploaded file here', url);
-
+    const nftUrl = await uploadToNFTStorage(acceptedFile[0]);
+    console.log('nftmetadata', nftUrl);
+    const urlPathname = nftUrl?.data?.image?.pathname.replace('//', '/');
+    const url = `https://nftstorage.link/ipfs${urlPathname}`;
     setFileUrl(url);
   }, []);
-
+  console.log(inputForm);
   const {
     getInputProps,
     isDragActive,
@@ -40,6 +47,12 @@ const CreateNfts = () => {
       `,
     [isDragActive, isDragAccept, isDragReject]
   );
+
+  const handleForm = (e) => {
+    const { value } = e.target;
+    const { name } = e.target;
+    setInputForm({ ...inputForm, [name]: value });
+  };
   return (
     <div className="flex justify-center sm:px-4 p-12">
       <div className="w-3/5 md:w-full">
@@ -83,6 +96,29 @@ const CreateNfts = () => {
                 </div>
               </aside>
             )}
+            <hr />
+
+            <Input
+              title="Name"
+              Name="name"
+              inputType="text"
+              placeholder="NFT Name"
+              handleClick={(e) => handleForm(e)}
+            />
+            <Input
+              title="Description"
+              Name="description"
+              inputType="textarea"
+              placeholder="Some Description"
+              handleClick={(e) => handleForm(e)}
+            />
+            <Input
+              title="Price"
+              Name="price"
+              inputType="number"
+              placeholder="Nft Price in ETH"
+              handleClick={(e) => handleForm(e)}
+            />
           </div>
         </div>
       </div>
